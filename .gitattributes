@@ -1,0 +1,15 @@
+# Normalizacja końców linii — w repozytorium zawsze LF, w kopii roboczej
+# końcówka natywna dla systemu. Bez tego każdy diff na Windows jest szumem.
+* text=auto eol=lf
+
+# Notebooki to JSON — tekst, ale diffy są nieczytelne. Oznaczone jawnie,
+# żeby Git nie próbował ich scalać automatycznie.
+*.ipynb text eol=lf merge=binary linguist-documentation
+
+# Dane wejściowe traktujemy jako niezmienny artefakt badania.
+*.csv text eol=lf
+
+# Skrypty powłoki Windows wymagają CRLF, inaczej nie uruchomią się poprawnie.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf

@@ -1,0 +1,2 @@
+Umieść tutaj plik `dane.csv` — surowy eksport ankiety.
+Format i wymagane kolumny opisuje ../README.md oraz src/dobrostan/schema.py.
