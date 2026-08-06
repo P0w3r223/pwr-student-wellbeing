@@ -22,7 +22,7 @@ o rozkładzie normalnym, dlatego podstawą są **metody nieparametryczne**:
 |---|---|---|
 | Związek dwóch zmiennych porządkowych | korelacja rang Spearmana | ρ |
 | Porównanie dwóch grup | U Manna-Whitneya | korelacja rangowo-dwuseryjna |
-| Porównanie 3+ grup | Kruskala-Wallisa | η² (epsilon-kwadrat) |
+| Porównanie 3+ grup | Kruskala-Wallisa | η²_H = (H − k + 1) / (n − k) |
 | Post hoc po Kruskalu-Wallisie | Dunna | — |
 | Dwie zmienne kategoryczne | chi-kwadrat niezależności | V Craméra |
 
@@ -59,6 +59,35 @@ rankingiem.
 
 Zmienne, które nie przeszły korekty, są na wykresach wyszarzone i oznaczone
 gwiazdką — wynik nieistotny nie powinien wyglądać tak samo jak istotny.
+
+## 2a. Wynik nieistotny a brak różnicy
+
+Nieistotny wynik w kilkunastoosobowej grupie i nieistotny wynik w grupie
+dwustuosobowej znaczą co innego, a wyglądają tak samo. Dlatego przy porównaniach
+opartych na małych grupach raport podaje **najmniejszą wielkość efektu, jaką
+test jest w stanie wykryć** przy mocy 0,80 (`stats.min_detectable_rb`).
+
+Rozstrzyga to konkretny przypadek: w rozdziale 7.2.2 porównanie kategorii „6-9"
+i „10 i więcej" bliskich znajomych obejmuje 45 i 11 osób i wykrywa dopiero
+efekty rzędu |r_rb| ≥ 0,55. Jego nieistotność nie jest więc dowodem, że grupy
+się nie różnią. Wcześniejsza wersja raportu wyciągała z niej wniosek
+o „punkcie nasycenia" relacji; wniosek ten usunięto.
+
+## 2b. Które zmienne wchodzą do rankingów
+
+Rankingi z rozdziału 3 obejmują zmienne liczbowe oraz te jakościowe, których
+kolejność kategorii jest **realną wielkością rosnącą** — w schemacie oznaczone
+flagą `rankable` (grupa wiekowa, etap studiów).
+
+Rozróżnienie jest potrzebne, bo pole `order` w schemacie pełni rolę
+prezentacyjną: ustala kolejność słupków na wykresie. „Inne / brak odpowiedzi"
+stoi pierwsze w stanie cywilnym, a „Z rodziną" leży pomiędzy mieszkaniem
+samodzielnym a współlokatorami — korelacja rangowa z takiego porządku byłaby
+liczbą bez interpretacji.
+
+Zmienne nominalne pozostają poza rankingiem, ale **ich lista jest wypisywana
+pod każdym rankingiem**. Zestawienie „najsilniejszych zależności", które milczy
+o tym, czego nie sprawdzało, sugeruje przegląd pełniejszy, niż był w istocie.
 
 ## 3. Kodowanie skal przedziałowych
 

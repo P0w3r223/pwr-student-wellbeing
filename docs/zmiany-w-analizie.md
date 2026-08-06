@@ -9,9 +9,79 @@ Related to: `docs/metodologia.md`
 
 Wykaz poprawek naniesionych podczas porządkowania projektu, z rozróżnieniem na
 te, które **zmieniają wyniki**, i te, które ich nie zmieniają. Dokument służy do
-odtworzenia toku rozumowania i wyjaśnia, dlaczego poszczególne rozwiązania
-zastąpiono innymi. Wersja wyjściowa raportu nie jest publikowana w tym
-repozytorium — jego historia zaczyna się od stanu po przebudowie.
+odtworzenia toku rozumowania — porównanie z wersją wyjściową jest możliwe przez
+`git diff` względem pierwszego commita.
+
+## 0. Druga tura poprawek (przegląd kodu, 2026-08-06)
+
+Zmiany naniesione po systematycznym przeglądzie kodu i audycie liczb cytowanych
+w narracji. Wykaz pierwszej tury zaczyna się w sekcji A.
+
+### 0.1 Narracja rozjechała się z wynikami — 11 liczb
+
+Tekst raportu powstał pod wcześniejszy przebieg i nie został zsynchronizowany po
+poprawkach z 5 sierpnia. Pięć statystyk `U` opisywało **drugą grupę** (każda była
+dopełnieniem `N₁·N₂ − U`) — pozostałość po naprawie kolejności grup (A4). Poza
+tym rozjechały się: β w rozdziale 10 (0,228 wobec 0,227), rozmiar rodziny
+i wartość p w 4.8, dwie korelacje w 6.2.1 i 7.5.
+
+Surowe statystyki `U` usunięto z narracji — są w tabelach i tylko tam. Powtarzanie
+liczby, która nic nie wnosi do interpretacji, wyłącznie mnoży miejsca do rozjazdu.
+
+### 0.2 Rozdziały 11 i 12 były wpisane ręcznie
+
+Tabele syntezy i rankingu dziesięciu najważniejszych ustaleń nie pochodziły
+z obliczeń. Zdążyły się rozjechać: znak `r_rb` dla aktywności fizycznej był
+odwrotny niż w sekcji 5.3.1, a dwie wielkości efektu różniły się od źródeł
+o tysięczne. Obie tabele liczą się teraz z tych samych wywołań co sekcje,
+na które się powołują.
+
+Ranking podaje wielkości efektu **bez znaku**. Znak `r_rb` zależy od tego, którą
+grupę nazwano pierwszą, więc w zestawieniu porządkującym siłę zależności nie
+niesie informacji, za to potrafi zaprzeczyć opisowi słownemu.
+
+### 0.3 Odwrócona logika braków danych — 6 wykresów
+
+`frequency_table` robiła dokładnie odwrotnie, niż zapowiadał jej docstring.
+Skutek podwójny: na pięciu wykresach aneksu stał **słupek bez etykiety**
+(odmowy odpowiedzi), a na wykresie średniej ocen 108 braków (27%) było **cicho
+wyrzucanych**, mimo że kod prosił o pokazanie ich jako osobnej kategorii.
+Narracja rozdziału 8.1 od początku podawała 27,3% — to wykres jej przeczył.
+
+### 0.4 Etykiety porównań post hoc były przekręcane
+
+`report.dunn` podmieniała kody na etykiety wewnątrz gotowego napisu „A vs B".
+Kody bywają swoimi prefiksami, więc w raporcie stało `Nie.Nie vs Nie.5`
+i `3 - 5.0 vs 6 - 9`. Etykietę składamy teraz z osobnych kolumn `grupa_1`
+i `grupa_2`.
+
+### 0.5 Wniosek o „punkcie nasycenia" relacji — usunięty
+
+Teza, że satysfakcja z relacji przestaje rosnąć powyżej 3-5 bliskich znajomych,
+opierała się na nieistotności dwóch porównań w grupach liczących 45 i 11 osób.
+Test wykrywa tam dopiero efekty rzędu |r_rb| ≥ 0,55, więc jego wynik nie niósł
+informacji. Średnie w kolejnych kategoriach nadal rosły. Raport podaje teraz przy
+każdym porównaniu post hoc najmniejszy wykrywalny efekt i stwierdza wprost,
+czego dane nie rozstrzygają.
+
+### 0.6 Pozostałe
+
+- **Rankingi pomijały 9 zmiennych bez słowa wyjaśnienia** — filtr typu wykluczał
+  wszystkie zmienne jakościowe. Uporządkowane o realnym porządku (wiek, etap
+  studiów) weszły do rankingu, rodzina testów urosła z 31 do 33; pozostałe są
+  wypisywane pod tabelą.
+- **Ostrzeżenie o zależności część-całość działało w jednej z czterech ścieżek** —
+  `sat_srednia` stała obok pięciu swoich składowych w tabelach Manna-Whitneya
+  i Kruskala bez adnotacji. Reguła jest teraz wspólna (`stats.flag_part_whole`).
+- **Porównania parami między wydziałami usunięte** — dwie z sześciu komórek
+  tablicy miały liczebność oczekiwaną poniżej 5. Test omnibus pozostał.
+- **Social jetlag i dieta a zdrowie psychiczne** opisane wprost jako zależności,
+  które nie utrzymują się w modelu wieloczynnikowym.
+- **Język przyczynowy** w opisach własnych wyników (rozdziały 7.3.2, 7.4, 10)
+  zastąpiony językiem współwystępowania.
+- Tabela kodowania w aneksie była **ucinana przez pandas** do 20 ze 101 wierszy.
+- Ostrzeżenie pandas i sekcja opisująca ANOVA w miejscu testu Kruskala-Wallisa —
+  usunięte.
 
 ## A. Zmiany wpływające na wyniki
 

@@ -4,8 +4,18 @@ Analiza badania ankietowego dotyczącego satysfakcji z życia, zdrowia psychiczn
 i fizycznego oraz stylu życia studentów Politechniki Wrocławskiej.
 
 **Próba:** 396 respondentów, 46 zmiennych, wszystkie wydziały uczelni.
-**Raport:** [`notebooks/raport.ipynb`](notebooks/raport.ipynb) — 15 rozdziałów od charakterystyki
-próby po modele wieloczynnikowe i wnioski.
+
+## Co czytać
+
+| Dokument | Dla kogo | Objętość |
+|---|---|---|
+| [`reports/synteza.html`](reports/synteza.html) | odbiorca, który ma pięć minut — wystąpienie, seminarium | 5 stron A4 |
+| [`reports/raport.html`](reports/raport.html) | odbiorca, który chce zobaczyć wszystkie wyniki | ~98 stron A4 |
+| [`notebooks/raport.ipynb`](notebooks/raport.ipynb) | odbiorca, który chce prześledzić obliczenia | 15 rozdziałów |
+
+Wszystkie trzy opisują to samo badanie. Notebook jest źródłem — obie wersje HTML
+powstają z niego skryptami z katalogu `tools/`, a synteza dodatkowo sprawdza przy
+generowaniu, czy podane w niej liczby nadal zgadzają się z raportem.
 
 ## Najważniejsze ustalenia
 
@@ -36,18 +46,29 @@ jupyter lab notebooks/raport.ipynb
 Aby odtworzyć wyniki co do cyfry, użyj `requirements-lock.txt` — zawiera dokładne
 wersje, na których wygenerowano bieżącą wersję raportu.
 
-Wykonanie całego notebooka bez interfejsu graficznego:
+Przeliczenie notebooka i złożenie obu dokumentów HTML od nowa:
 
 ```bash
 jupyter nbconvert --execute --to notebook --inplace notebooks/raport.ipynb
+python tools/build_report.py      # reports/raport.html
+python tools/build_summary.py     # reports/synteza.html
 ```
+
+Kolejność ma znaczenie: skrypty czytają zapisane wyniki z notebooka, więc
+najpierw trzeba go wykonać. `build_summary.py` przerywa pracę, jeśli liczby
+wpisane w syntezę przestały zgadzać się z raportem.
 
 ## Struktura projektu
 
 ```
 ├── data/raw/dane.csv          surowy eksport ankiety (niemodyfikowany)
-├── notebooks/raport.ipynb     raport — jedyny dokument przeznaczony do czytania
-├── reports/                   wyeksportowana wersja HTML
+├── notebooks/raport.ipynb     raport — źródło treści i wszystkich wyników
+├── reports/
+│   ├── raport.html            pełny raport do czytania i druku
+│   └── synteza.html           wyciąg na wystąpienie konferencyjne
+├── tools/
+│   ├── build_report.py        notebook → pełny raport HTML
+│   └── build_summary.py       ustalenia rozdziałów 10-14 → synteza
 ├── src/dobrostan/
 │   ├── schema.py              opis kwestionariusza: zmienne, skale, etykiety
 │   ├── prepare.py             przygotowanie danych z walidacją
@@ -56,7 +77,6 @@ jupyter nbconvert --execute --to notebook --inplace notebooks/raport.ipynb
 │   └── plots.py               wykresy
 ├── docs/metodologia.md        decyzje metodologiczne i ich uzasadnienie
 ├── docs/zmiany-w-analizie.md  wykaz poprawek względem pierwszej wersji
-└── archive/                   wcześniejsze analizy indywidualne (nieaktualne)
 ```
 
 Notebook nie zawiera logiki obliczeniowej — wywołuje funkcje z `src/dobrostan`
@@ -86,9 +106,10 @@ reprezentuje jedna i dwie osoby, co w połączeniu z wiekiem, płcią i etapem
 studiów mogłoby pozwolić na rozpoznanie respondenta.
 
 Raport jest w pełni czytelny bez pliku źródłowego — `notebooks/raport.ipynb`
-zawiera zapisane wyniki wszystkich analiz i 61 wykresów.
+zawiera zapisane wyniki wszystkich analiz i 61 wykresów, a `reports/` gotowe
+dokumenty HTML.
 
-Aby uruchomić kod ponownie, umieść plik ankiety w `data/raw/dane.csv`.
+Aby odtworzyć obliczenia, umieść plik ankiety w `data/raw/dane.csv`.
 Oczekiwany format opisuje [`data/README.md`](data/README.md), a pełne mapowanie
 pytań na zmienne — `src/dobrostan/schema.py`. Dostęp do danych na potrzeby
 weryfikacji naukowej: kontakt przez profil GitHub.

@@ -22,7 +22,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 import scikit_posthocs as sp
-from scipy.stats import chi2_contingency, kruskal, mannwhitneyu, spearmanr
+from scipy.stats import chi2_contingency, kruskal, mannwhitneyu, norm, spearmanr
 from statsmodels.stats.multitest import multipletests
 
 from . import schema
@@ -55,6 +55,25 @@ def format_number(value: float, decimals: int = 3) -> str:
     if pd.isna(value):
         return "—"
     return f"{value:.{decimals}f}".replace(".", ",")
+
+
+def min_detectable_rb(n1: int, n2: int, alpha: float = ALPHA, power: float = 0.80) -> float:
+    """Najmniejsza wielkość efektu, jaką test U wykryje przy danych liczebnościach.
+
+    Odróżnia „grupy się nie różnią" od „grupy są za małe, żeby różnicę zobaczyć".
+    Bez tej liczby wynik nieistotny w kilkunastoosobowej grupie czyta się jak
+    dowód braku zależności, choć jest wyłącznie brakiem rozstrzygnięcia.
+
+    Przybliżenie normalne rozkładu statystyki U; zwracana wartość to próg
+    korelacji rangowo-dwuseryjnej przy zadanej mocy testu.
+    """
+    if min(n1, n2) < 1:
+        return float("nan")
+
+    z_alpha = norm.ppf(1 - alpha / 2)
+    z_power = norm.ppf(power)
+    sigma = np.sqrt((n1 + n2 + 1) / (12 * n1 * n2))
+    return min(1.0, 2 * (0.5 + (z_alpha + z_power) * sigma) - 1)
 
 
 def group_levels(series: pd.Series) -> list:
@@ -120,23 +139,36 @@ def spearman_ranking(
     top_n: int | None = None,
     alpha: float = ALPHA,
 ) -> pd.DataFrame:
-    """Ranking korelacji Spearmana zmiennej `target` z pozostałymi zmiennymi liczbowymi.
+    """Ranking korelacji Spearmana zmiennej `target` z pozostałymi zmiennymi.
 
     Korekta FDR jest liczona na wszystkich wykonanych porównaniach, a obcięcie
     do `top_n` następuje dopiero po niej. Kolumna `n_rodziny` zapisuje rozmiar
     rodziny testów, żeby dało się to zweryfikować w raporcie.
+
+    Do rankingu wchodzą zmienne liczbowe oraz te zmienne jakościowe, których
+    kolejność kategorii jest realną wielkością rosnącą (`schema.rankable_codes`).
+    Nazwy zmiennych, które nie mogły wziąć udziału, trafiają do
+    `ranking.attrs["pominiete"]` — ranking „najsilniejszych zależności", który
+    milczy o tym, czego nie sprawdzał, jest mylący.
     """
     excluded = set(exclude or ())
     excluded.add(target)
+    rankable = set(schema.rankable_codes())
 
     results = []
+    skipped = []
     for column in df.columns:
-        if column in excluded or not pd.api.types.is_numeric_dtype(df[column]):
-            continue
-        if df[column].nunique(dropna=True) < 2:
+        if column in excluded:
             continue
 
-        result = run_spearman(df, target, column)
+        series = _as_ranks(df[column], column in rankable)
+        if series is None:
+            skipped.append(column)
+            continue
+        if series.nunique(dropna=True) < 2:
+            continue
+
+        result = run_spearman(df.assign(**{column: series}), target, column)
         if result.loc[0, "n"] < min_n or pd.isna(result.loc[0, "rho"]):
             continue
         results.append(result)
@@ -151,8 +183,23 @@ def spearman_ranking(
     ranking = fdr_correction(ranking, alpha=alpha)
     ranking["n_rodziny"] = len(ranking)
 
-    ranking = ranking.sort_values("abs_rho", ascending=False).reset_index(drop=True)
-    return ranking.head(top_n) if top_n else ranking
+    ranking = ranking.sort_values("abs_rho", ascending=False, kind="stable").reset_index(drop=True)
+    ranking = ranking.head(top_n) if top_n else ranking
+    ranking.attrs["pominiete"] = sorted(skipped)
+    return ranking
+
+
+def _as_ranks(series: pd.Series, rankable: bool) -> pd.Series | None:
+    """Zwraca serię nadającą się do korelacji rangowej albo None.
+
+    Zmienne jakościowe zamieniamy na numery kategorii wyłącznie wtedy, gdy
+    schemat potwierdza, że ich kolejność coś mierzy.
+    """
+    if pd.api.types.is_numeric_dtype(series):
+        return series
+    if rankable and isinstance(series.dtype, pd.CategoricalDtype) and series.dtype.ordered:
+        return series.cat.codes.where(series.notna())
+    return None
 
 
 def correlation_table(
@@ -172,17 +219,39 @@ def correlation_table(
     """
     results = pd.concat([run_spearman(df, x, y) for y in outcomes], ignore_index=True)
     results = fdr_correction(results, alpha=alpha)
+    results["czesc_calosci"] = flag_part_whole(results["zmienna_y"], outcomes, x)
 
+    return results.sort_values(
+        "rho", key=lambda s: s.abs(), ascending=False, kind="stable"
+    ).reset_index(drop=True)
+
+
+def flag_part_whole(
+    tested: pd.Series | list[str],
+    outcomes: list[str],
+    other: str | None = None,
+) -> list[bool]:
+    """Oznacza wyniki powiązane konstrukcyjnie z ogólnym wskaźnikiem satysfakcji.
+
+    `sat_srednia` jest średnią siedmiu wymiarów satysfakcji, więc nie jest
+    ustaleniem niezależnym, gdy:
+
+    * zestawiamy ją z własną składową (albo składową z nią),
+    * stoi w jednej tabeli obok swoich składowych — jest wtedy ich zagregowaną
+      powtórką, a nie osobnym wynikiem, i dodatkowo powiększa rodzinę testów.
+
+    Wspólna dla korelacji, porównań grup i testu Kruskala-Wallisa — reguła
+    obowiązująca tylko w jednej z tych ścieżek dawałaby ostrzeżenie zależne od
+    tego, którym testem zbadano ten sam układ zmiennych.
+    """
     components = set(schema.SATISFACTION_COMPONENTS)
     shares_table = bool(set(outcomes) & components)
 
-    results["czesc_calosci"] = [
-        (x == "sat_srednia" and y in components)
-        or (y == "sat_srednia" and (x in components or shares_table))
-        for y in results["zmienna_y"]
+    return [
+        (other == "sat_srednia" and y in components)
+        or (y == "sat_srednia" and (other in components or shares_table))
+        for y in tested
     ]
-
-    return results.sort_values("rho", key=lambda s: s.abs(), ascending=False).reset_index(drop=True)
 
 
 # ---------------------------------------------------------------------------
@@ -243,7 +312,8 @@ def comparison_table(
         [run_mannwhitney(df, group, outcome) for outcome in outcomes], ignore_index=True
     )
     results = fdr_correction(results, alpha=alpha)
-    return results.sort_values("p_fdr").reset_index(drop=True)
+    results["czesc_calosci"] = flag_part_whole(results["wynik"], outcomes)
+    return results.sort_values("p_fdr", kind="stable").reset_index(drop=True)
 
 
 def run_kruskal(df: pd.DataFrame, group: str, outcome: str) -> tuple[pd.DataFrame, pd.DataFrame]:
@@ -258,7 +328,8 @@ def run_kruskal(df: pd.DataFrame, group: str, outcome: str) -> tuple[pd.DataFram
     h, p = kruskal(*samples)
     n, k = len(data), len(samples)
 
-    # Epsilon-kwadrat: udział wariancji rang wyjaśniony przez podział na grupy.
+    # η²_H — udział wariancji rang wyjaśniony przez podział na grupy.
+    # Nie mylić z epsilon-kwadratem, który liczy się inaczej: ε² = H(n+1)/(n²−1).
     eta2 = max(0.0, (h - k + 1) / (n - k))
 
     result = pd.DataFrame(
@@ -274,6 +345,25 @@ def run_kruskal(df: pd.DataFrame, group: str, outcome: str) -> tuple[pd.DataFram
     return result, summary
 
 
+def kruskal_table(
+    df: pd.DataFrame,
+    group: str,
+    outcomes: list[str],
+    alpha: float = ALPHA,
+) -> pd.DataFrame:
+    """Test Kruskala-Wallisa dla listy wskaźników, z korektą FDR na całej rodzinie.
+
+    Odpowiednik `comparison_table` dla porównań wielogrupowych — dzięki temu
+    obie ścieżki liczą korektę i oznaczają zależności część-całość tak samo.
+    """
+    results = pd.concat(
+        [run_kruskal(df, group, outcome)[0] for outcome in outcomes], ignore_index=True
+    )
+    results = fdr_correction(results, alpha=alpha)
+    results["czesc_calosci"] = flag_part_whole(results["wynik"], outcomes)
+    return results
+
+
 def run_dunn(df: pd.DataFrame, group: str, outcome: str, p_adjust: str | None = None) -> pd.DataFrame:
     """Test post hoc Dunna — porównania parami po teście Kruskala-Wallisa.
 
@@ -283,8 +373,17 @@ def run_dunn(df: pd.DataFrame, group: str, outcome: str, p_adjust: str | None = 
     data = df[[group, outcome]].dropna()
     posthoc = sp.posthoc_dunn(data, val_col=outcome, group_col=group, p_adjust=p_adjust)
 
+    # Porównywane grupy zwracamy osobno, a nie jako gotowy napis „A vs B".
+    # Sklejony napis kusi, żeby podmieniać w nim kody na etykiety, a kody bywają
+    # swoimi prefiksami („0" w „0.0", „4" w „4.0") i podmiana je przekręca.
     comparisons = [
-        {"grupa": group, "wynik": outcome, "porownanie": f"{g1} vs {g2}", "p": posthoc.loc[g1, g2]}
+        {
+            "grupa": group,
+            "wynik": outcome,
+            "grupa_1": g1,
+            "grupa_2": g2,
+            "p": posthoc.loc[g1, g2],
+        }
         for i, g1 in enumerate(posthoc.index)
         for j, g2 in enumerate(posthoc.columns)
         if j > i
@@ -332,9 +431,10 @@ def frequency_table(
 
     Braki danych są uwzględniane w mianowniku udziałów procentowych tylko
     wtedy, gdy podano `na_label` — czyli gdy brak jest świadomie prezentowany
-    jako osobna kategoria (np. „I semestr — brak ocen").
+    jako osobna kategoria (np. „I semestr — brak ocen"). Bez `na_label` braki
+    wypadają z zestawienia, żeby nie tworzyć słupka bez podpisu.
     """
-    counts = df[column].value_counts(dropna=na_label is not None)
+    counts = df[column].value_counts(dropna=na_label is None)
 
     if sort == "index":
         counts = counts.sort_index()
@@ -392,6 +492,9 @@ __all__ = [
     "run_mannwhitney",
     "comparison_table",
     "run_kruskal",
+    "min_detectable_rb",
+    "kruskal_table",
+    "flag_part_whole",
     "run_dunn",
     "run_chi2",
     "frequency_table",

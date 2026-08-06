@@ -10,3 +10,4 @@ seaborn==0.13.2
 Unidecode==1.4.0
 jupyterlab==4.6.2
 nbformat==5.10.4
+mistune==3.3.4

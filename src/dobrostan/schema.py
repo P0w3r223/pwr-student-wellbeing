@@ -77,7 +77,21 @@ class Variable:
     """Skala przedziałowa. Pusta dla zmiennych już liczbowych i tekstowych."""
 
     order: tuple[str, ...] = field(default_factory=tuple)
-    """Kolejność kategorii dla zmiennych jakościowych porządkowych."""
+    """Kolejność kategorii dla zmiennych jakościowych porządkowych.
+
+    To kolejność **prezentacyjna** — ustala, jak kategorie układają się na osi
+    wykresu. Nie znaczy, że odstępy między nimi cokolwiek mierzą.
+    """
+
+    rankable: bool = False
+    """Czy kolejność kategorii jest monotoniczną wielkością, a nie tylko układem osi.
+
+    Rozróżnienie jest potrzebne, bo `order` bywa czystym porządkiem
+    wyświetlania: „inne / brak odpowiedzi" stoi pierwsze w stanie cywilnym,
+    a „Z rodziną" leży między mieszkaniem samodzielnym a współlokatorami.
+    Wstawienie takich zmiennych do korelacji rangowej dałoby liczbę bez
+    interpretacji, dlatego do rankingów wchodzą tylko oznaczone tą flagą.
+    """
 
 
 def _intervals(pairs: list[tuple[str, float]], last_open: bool = True) -> tuple[Category, ...]:
@@ -127,6 +141,7 @@ VARIABLES: dict[str, Variable] = {
         "Grupa wiekowa",
         "Grupa wiekowa",
         order=("18 - 20 lat", "21 - 23 lata", "24 - 26 lat", "27 lat i więcej"),
+        rankable=True,
     ),
     "plec": Variable("Płeć", "Płeć"),
     "wydzial": Variable("Wydział", "Wydział"),
@@ -140,6 +155,7 @@ VARIABLES: dict[str, Variable] = {
             "II stopień (magister)",
             "Doktorat lub wyżej",
         ),
+        rankable=True,
     ),
     "typ_zamieszkania": Variable("Typ zamieszkania", "Typ miejsca zamieszkania"),
     "wspollokatorzy": Variable(
@@ -493,6 +509,15 @@ def ordinal_codes() -> list[str]:
     return [code for code, v in VARIABLES.items() if v.order]
 
 
+def rankable_codes() -> list[str]:
+    """Kody zmiennych jakościowych nadających się do korelacji rangowej.
+
+    Podzbiór `ordinal_codes` — te, których kolejność kategorii jest realną
+    wielkością rosnącą, a nie tylko układem osi wykresu.
+    """
+    return [code for code, v in VARIABLES.items() if v.order and v.rankable]
+
+
 def labels() -> dict[str, str]:
     """Krótkie etykiety wszystkich zmiennych — na osie i legendy wykresów."""
     return {code: v.label for code, v in VARIABLES.items()}
@@ -569,6 +594,7 @@ __all__ = [
     "value_labels",
     "scaled_codes",
     "ordinal_codes",
+    "rankable_codes",
     "labels",
     "descriptions",
     "mapping_table",

@@ -149,9 +149,66 @@ def _new_axes(ax, figsize):
     return ax.figure, ax
 
 
-def _finish(fig, ax) -> None:
+def _xticks_collide(fig, ax, gap: float = 3.0) -> bool:
+    """Czy sąsiednie etykiety osi X zachodzą na siebie (albo prawie się stykają)?
+
+    Mierzy faktyczne prostokąty zajmowane przez napisy, a nie ich długość
+    w znakach — ta sama etykieta mieści się na samodzielnym wykresie i nie
+    mieści w wąskim panelu siatki `subplots`.
+    """
+    try:
+        renderer = fig.canvas.get_renderer()
+    except AttributeError:  # backend bez gotowego renderera
+        fig.canvas.draw()
+        renderer = fig.canvas.get_renderer()
+
+    boxes = sorted(
+        (
+            label.get_window_extent(renderer=renderer)
+            for label in ax.get_xticklabels()
+            if label.get_text().strip()
+        ),
+        key=lambda box: box.x0,
+    )
+    return any(left.x1 + gap > right.x0 for left, right in zip(boxes, boxes[1:]))
+
+
+def _fit_xticks(fig, ax) -> None:
+    """Obraca etykiety osi X dopiero wtedy, gdy inaczej zachodziłyby na siebie.
+
+    Kąt dobierany jest stopniowo — najmniejszy, przy którym napisy przestają
+    kolidować. Wykresy z krótkimi etykietami zostają poziome, bo obrót „na
+    wszelki wypadek" pogarsza czytelność tam, gdzie nie był potrzebny.
+
+    Przed obrotem etykieta wraca do jednej linii: tekst łamany na kilka
+    wierszy i jednocześnie ustawiony pod kątem czyta się znacznie gorzej niż
+    ten sam napis rozciągnięty ukośnie.
+    """
+    labels = ax.get_xticklabels()
+    if not labels or not _xticks_collide(fig, ax):
+        return
+
+    # Pozycje podajemy razem z tekstem, żeby oś dostała stały lokalizator —
+    # inaczej matplotlib ostrzega, że etykiety mogą odjechać od podziałek.
+    ax.set_xticks(
+        list(ax.get_xticks()),
+        [" ".join(label.get_text().split()) for label in labels],
+    )
+
+    for angle in (30, 45, 60, 90):
+        for label in ax.get_xticklabels():
+            label.set_rotation(angle)
+            label.set_horizontalalignment("right")
+            label.set_rotation_mode("anchor")
+        if not _xticks_collide(fig, ax):
+            return
+
+
+def _finish(fig, ax, fit_ticks: bool = True) -> None:
     """Domyka wykres — układ dopasowujemy tylko dla samodzielnych rysunków."""
     ax.set_axisbelow(True)
+    if fit_ticks:
+        _fit_xticks(fig, ax)
     if len(fig.axes) == 1:
         fig.tight_layout()
 
@@ -407,11 +464,16 @@ def plot_correlation_heatmap(
     figsize: tuple[float, float] = (7, 5.5),
     ax=None,
 ):
-    """Macierz korelacji wybranych zmiennych."""
+    """Macierz korelacji wybranych zmiennych.
+
+    Etykiety osi pionowej są łamane na kilka wierszy, poziomej — nie. Napis
+    złożony z kilku wierszy i jednocześnie obrócony jest nieczytelny, a przy
+    kilkunastu zmiennych obrót osi X jest nieunikniony.
+    """
     corr = df[columns].corr(method=method)
     if labels is not None:
-        names = [wrap_label(labels.get(c, c), 14) for c in columns]
-        corr.index, corr.columns = names, names
+        corr.index = [wrap_label(labels.get(c, c), 14) for c in columns]
+        corr.columns = [str(labels.get(c, c)) for c in columns]
 
     mask = np.triu(np.ones_like(corr, dtype=bool), k=0) if lower_triangle else None
 
@@ -421,7 +483,7 @@ def plot_correlation_heatmap(
         mask=mask,
         annot=True,
         fmt=".2f",
-        annot_kws={"fontsize": 9},
+        annot_kws={"fontsize": 9 if len(columns) <= 8 else 8},
         cmap=DIVERGING,
         center=0,
         vmin=-1,
@@ -434,6 +496,9 @@ def plot_correlation_heatmap(
     )
 
     ax.set_title(title, pad=12)
+    # Seaborn przy dłuższych nazwach stawia oś X pionowo. Zerujemy obrót
+    # i oddajemy decyzję `_fit_xticks`, który dobiera najmniejszy kąt
+    # rozwiązujący kolizję — pion bywa potrzebny, ale rzadko.
     ax.tick_params(axis="both", rotation=0)
     for spine in ax.spines.values():
         spine.set_visible(False)
