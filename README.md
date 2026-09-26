@@ -1,39 +1,39 @@
-# Dobrostan studentów Politechniki Wrocławskiej
+# Wellbeing of students at Wrocław University of Science and Technology
 
-Analiza badania ankietowego dotyczącego satysfakcji z życia, zdrowia psychicznego
-i fizycznego oraz stylu życia studentów Politechniki Wrocławskiej.
+An analysis of a survey on life satisfaction, mental and physical health and lifestyle among students
+of Wrocław University of Science and Technology (Politechnika Wrocławska).
 
-**Próba:** 396 respondentów, 46 zmiennych, wszystkie wydziały uczelni.
+**Sample:** 396 respondents, 46 variables, every faculty of the university. The reports and the
+notebook are in Polish.
 
-## Co czytać
+## Main findings
 
-| Dokument | Dla kogo | Objętość |
+| Area | Strongest result | Holds in the multivariable model |
 |---|---|---|
-| [`reports/synteza.html`](reports/synteza.html) | odbiorca, który ma pięć minut — wystąpienie, seminarium | 5 stron A4 |
-| [`reports/raport.html`](reports/raport.html) | odbiorca, który chce zobaczyć wszystkie wyniki | ~98 stron A4 |
-| [`notebooks/raport.ipynb`](notebooks/raport.ipynb) | odbiorca, który chce prześledzić obliczenia | 15 rozdziałów |
+| Relationships | Social support → life satisfaction (ρ = 0.39) | Yes |
+| Sleep | Sleep problems → stress (r_rb = 0.43) | Yes |
+| Physical activity | Activity → physical health (r_rb = 0.40) | Yes |
+| Finances | Rating of one's finances → life satisfaction (ρ = 0.25) | Yes |
+| Diet | Rating of one's diet → physical health (ρ = 0.32) | No |
+| Work | No significant difference between students who work and those who do not | n/a |
 
-Wszystkie trzy opisują to samo badanie. Notebook jest źródłem — obie wersje HTML
-powstają z niego skryptami z katalogu `tools/`, a synteza dodatkowo sprawdza przy
-generowaniu, czy podane w niej liczby nadal zgadzają się z raportem.
+All effects are weak or moderate, and the multivariable models explain 16% to 29% of the variance. The
+survey is cross-sectional, so **no relationship here should be read as causal**; the full list of
+caveats is in chapter 13 of the report.
 
-## Najważniejsze ustalenia
+## What to read
 
-| Obszar | Najsilniejszy wynik | Utrzymuje się w modelu wieloczynnikowym |
+| Document | For whom | Length |
 |---|---|---|
-| Relacje społeczne | Wsparcie społeczne → satysfakcja z życia (ρ = 0,39) | Tak |
-| Sen | Problemy ze snem → poziom stresu (r_rb = 0,43) | Tak |
-| Aktywność fizyczna | Aktywność → zdrowie fizyczne (r_rb = 0,40) | Tak |
-| Finanse | Ocena sytuacji finansowej → satysfakcja z życia (ρ = 0,25) | Tak |
-| Dieta | Ocena diety → zdrowie fizyczne (ρ = 0,32) | Nie |
-| Praca | Brak istotnych różnic między pracującymi a niepracującymi | — |
+| [`reports/synteza.html`](reports/synteza.html) | a reader with five minutes: a talk or a seminar | 5 A4 pages |
+| [`reports/raport.html`](reports/raport.html) | a reader who wants every result | ~98 A4 pages |
+| [`notebooks/raport.ipynb`](notebooks/raport.ipynb) | a reader who wants to follow the computation | 15 chapters |
 
-Wszystkie efekty mieszczą się w kategorii słabych lub umiarkowanych, a modele
-wieloczynnikowe wyjaśniają od 16% do 29% zróżnicowania. Badanie jest przekrojowe,
-więc **żadnej zależności nie należy interpretować przyczynowo** — pełna lista
-zastrzeżeń znajduje się w rozdziale 13 raportu.
+All three describe the same study. The notebook is the source: both HTML documents are built from it
+by the scripts in `tools/`, and the summary checks while it is built that its numbers still match the
+full report.
 
-## Uruchomienie
+## Run it
 
 ```bash
 python -m venv .venv
@@ -43,10 +43,28 @@ pip install -r requirements.txt
 jupyter lab notebooks/raport.ipynb
 ```
 
-Aby odtworzyć wyniki co do cyfry, użyj `requirements-lock.txt` — zawiera dokładne
-wersje, na których wygenerowano bieżącą wersję raportu.
+**The raw data set is not in this repository.** The report can be read in full without the source file: `notebooks/raport.ipynb` holds the saved
+results of every analysis and 61 charts, and `reports/` holds the finished HTML documents.
 
-Przeliczenie notebooka i złożenie obu dokumentów HTML od nowa:
+## Details
+
+<details>
+<summary><strong>Why these methods</strong></summary>
+
+Most outcomes are 5-point ordinal scales, so the tests are nonparametric (Mann-Whitney,
+Kruskal-Wallis, Spearman). Each family has about 31 to 33 tests, so p-values are corrected with the
+Benjamini-Hochberg false discovery rate. Details and the reasons for each choice:
+[`docs/metodologia.md`](docs/metodologia.md) (Polish).
+
+</details>
+
+<details>
+<summary><strong>Rebuild the reports</strong></summary>
+
+To reproduce the results to the digit, use `requirements-lock.txt`, which pins the exact versions the
+current report was built with.
+
+To re-execute the notebook and rebuild both HTML documents:
 
 ```bash
 jupyter nbconvert --execute --to notebook --inplace notebooks/raport.ipynb
@@ -54,69 +72,72 @@ python tools/build_report.py      # reports/raport.html
 python tools/build_summary.py     # reports/synteza.html
 ```
 
-Kolejność ma znaczenie: skrypty czytają zapisane wyniki z notebooka, więc
-najpierw trzeba go wykonać. `build_summary.py` przerywa pracę, jeśli liczby
-wpisane w syntezę przestały zgadzać się z raportem.
+Order matters: the scripts read the results saved in the notebook, so the notebook runs first.
+`build_summary.py` stops if the numbers written into the summary no longer match the report.
 
-## Struktura projektu
+</details>
+
+<details>
+<summary><strong>Project layout and design</strong></summary>
 
 ```
-├── data/raw/dane.csv          surowy eksport ankiety (niemodyfikowany)
-├── notebooks/raport.ipynb     raport — źródło treści i wszystkich wyników
+├── data/raw/dane.csv          raw survey export (not in the repository, see "Data")
+├── notebooks/raport.ipynb     the report: source of the text and of every result
 ├── reports/
-│   ├── raport.html            pełny raport do czytania i druku
-│   └── synteza.html           wyciąg na wystąpienie konferencyjne
+│   ├── raport.html            full report for reading and printing
+│   └── synteza.html           summary for a conference talk
 ├── tools/
-│   ├── build_report.py        notebook → pełny raport HTML
-│   └── build_summary.py       ustalenia rozdziałów 10-14 → synteza
+│   ├── build_report.py        notebook → full HTML report
+│   └── build_summary.py       findings of chapters 10-14 → summary
 ├── src/dobrostan/
-│   ├── schema.py              opis kwestionariusza: zmienne, skale, etykiety
-│   ├── prepare.py             przygotowanie danych z walidacją
-│   ├── stats.py               testy statystyczne
-│   ├── report.py              formatowanie wyników do tabel
-│   └── plots.py               wykresy
-├── docs/metodologia.md        decyzje metodologiczne i ich uzasadnienie
-├── docs/zmiany-w-analizie.md  wykaz poprawek względem pierwszej wersji
+│   ├── schema.py              the questionnaire: variables, scales, labels
+│   ├── prepare.py             data preparation with validation
+│   ├── stats.py               statistical tests
+│   ├── report.py              formatting results into tables
+│   └── plots.py               charts
+├── docs/metodologia.md        methodological decisions and their reasons
+├── docs/zmiany-w-analizie.md  corrections made after the first version
 ```
 
-Notebook nie zawiera logiki obliczeniowej — wywołuje funkcje z `src/dobrostan`
-i opisuje wyniki. Dzięki temu każdą procedurę można sprawdzić i zmienić w jednym
-miejscu, a raport pozostaje czytelny jako dokument.
+The notebook holds no computation logic. It calls functions from `src/dobrostan` and describes the
+results, so each procedure can be checked and changed in one place.
 
-## Architektura
+`schema.py` is **the single source of truth about the questionnaire**. It describes each variable
+once: the question, its code, its labels and the answer categories with their numeric values. Both
+the forward coding (answer → number) and the reverse description (number → chart label) are
+generated from it, so they cannot drift apart.
 
-`schema.py` jest **jedynym źródłem prawdy o kwestionariuszu**. Opisuje każdą
-zmienną raz — nazwę pytania, kod, etykiety oraz kategorie odpowiedzi wraz
-z przypisanymi wartościami liczbowymi. Z tego opisu generowane jest zarówno
-kodowanie „w przód" (odpowiedź → liczba), jak i opis „wstecz" (liczba → etykieta
-na wykresie), więc nie mogą się one rozjechać.
+Data preparation ends with a validation step that stops processing when the questionnaire no longer
+matches the schema or when a numeric column is still text. Both used to narrow an analysis silently
+instead of raising a visible error.
 
-Przygotowanie danych kończy się walidacją, która przerywa przetwarzanie, gdy
-kwestionariusz przestaje odpowiadać schematowi lub gdy kolumna liczbowa
-pozostała tekstowa. Obie sytuacje wcześniej powodowały ciche zawężenie analiz,
-a nie widoczny błąd.
+</details>
 
-## Dane
+<details>
+<summary><strong>Data</strong></summary>
 
-**Surowy zbiór nie jest udostępniany w tym repozytorium.** Ankieta zawiera
-odpowiedzi 396 realnych studentów i mimo braku danych identyfikujących wprost
-(pole e-mail zanonimizowano na etapie eksportu, sygnatura czasowa jest usuwana
-przy wczytywaniu) pozostają w niej quasi-identyfikatory: najmniejsze wydziały
-reprezentuje jedna i dwie osoby, co w połączeniu z wiekiem, płcią i etapem
-studiów mogłoby pozwolić na rozpoznanie respondenta.
+The survey holds the answers of 396 real students.
+It has no direct identifiers (the e-mail field was anonymised at export and the timestamp is dropped
+on load), but quasi-identifiers remain: the smallest faculties are represented by one and two people,
+which together with age, gender and year of study could identify a respondent.
 
-Raport jest w pełni czytelny bez pliku źródłowego — `notebooks/raport.ipynb`
-zawiera zapisane wyniki wszystkich analiz i 61 wykresów, a `reports/` gotowe
-dokumenty HTML.
+To reproduce the computation, put the survey file at `data/raw/dane.csv`. The expected format is
+described in [`data/README.md`](data/README.md), and the mapping of questions to variables in
+`src/dobrostan/schema.py`. Access to the data for scientific verification: contact through the
+GitHub profile.
 
-Aby odtworzyć obliczenia, umieść plik ankiety w `data/raw/dane.csv`.
-Oczekiwany format opisuje [`data/README.md`](data/README.md), a pełne mapowanie
-pytań na zmienne — `src/dobrostan/schema.py`. Dostęp do danych na potrzeby
-weryfikacji naukowej: kontakt przez profil GitHub.
+</details>
 
-## Dokumentacja
+<details>
+<summary><strong>Documentation (Polish)</strong></summary>
 
-- [`docs/metodologia.md`](docs/metodologia.md) — dobór testów, kodowanie skal,
-  korekta na wielokrotne testowanie, znane ograniczenia pomiaru
-- [`docs/zmiany-w-analizie.md`](docs/zmiany-w-analizie.md) — co i dlaczego zmieniono
-  względem pierwszej wersji raportu, z wpływem na wyniki
+- [`docs/metodologia.md`](docs/metodologia.md): choice of tests, scale coding, correction for
+  multiple testing, known limits of the measurement
+- [`docs/zmiany-w-analizie.md`](docs/zmiany-w-analizie.md): what changed after the first version of
+  the report and why, with the effect on the results
+
+</details>
+
+## License
+
+MIT for the code, see [LICENSE](LICENSE). The survey data is not published.
